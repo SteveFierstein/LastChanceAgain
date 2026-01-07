@@ -1,255 +1,158 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>FinsAndPins Board Selector</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: system-ui; background: #111; color: #f5f5f5; padding: 1rem; }
-    h1 { font-size: 1.4rem; margin-bottom: 0.5rem; }
-    .controls { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
-    button { background: #2d8cff; color: #fff; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.9rem; }
-    button:disabled { background: #555; }
-    .boards-container { display: flex; flex-direction: column; gap: 1rem; }
-    .board { background: #181818; border-radius: 6px; padding: 0.5rem; border: 1px solid #333; }
-    .board-header, .board-footer { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.3rem; }
-    canvas { width: 100%; height: auto; border-radius: 4px; background: #000; touch-action: manipulation; }
-    .status { font-size: 0.8rem; color: #ccc; }
-  </style>
+<meta charset="UTF-8">
+<title>All Boards</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 10px;
+        background: #f5f5f5;
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    .board-container {
+        margin-bottom: 40px;
+        background: white;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+
+    .board-title {
+        font-size: 20px;
+        margin-bottom: 10px;
+        font-weight: bold;
+    }
+
+    .board-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 500px;
+        margin: auto;
+    }
+
+    .board-img {
+        width: 100%;
+        display: block;
+        border-radius: 6px;
+    }
+
+    .pin {
+        position: absolute;
+        border: 2px solid rgba(255, 0, 0, 0.7);
+        background: rgba(255, 0, 0, 0.2);
+        border-radius: 6px;
+    }
+
+    .pin.selected {
+        border-color: rgba(0, 128, 0, 0.9);
+        background: rgba(0, 255, 0, 0.25);
+    }
+</style>
 </head>
+
 <body>
-  <h1>FinsAndPins Board Selector</h1>
-  <div class="controls">
-    <button id="downloadAllBtn" disabled>Download All Boards</button>
-    <span id="globalStatus" class="status"></span>
-  </div>
-  <div class="boards-container" id="boardsContainer"></div>
 
-  <script>
-    const BOX_STROKE_COLOR = "rgba(255,255,0,0.95)";
-    const BOX_FILL_COLOR = "rgba(255,255,0,0.15)";
-    const BOX_LINE_WIDTH = 6;
+<h1>All Boards</h1>
 
-    const boardsContainer = document.getElementById("boardsContainer");
-    const globalStatus = document.getElementById("globalStatus");
-    const downloadAllBtn = document.getElementById("downloadAllBtn");
+<script>
+// List of all boards (base names only)
+const boardList = [
+  "IMG_0278",
+  "IMG_0279",
+  "IMG_0280",
+  "IMG_0281",
+  "IMG_0282",
+  "IMG_0283",
+  "IMG_0284",
+  "IMG_0285",
+  "IMG_0286",
+  "IMG_0287",
+  "IMG_0288"
+];
 
-    const boards = [];
-    let observer = null;
+// Load saved selections
+let savedSelections = JSON.parse(localStorage.getItem("pinSelections") || "{}");
 
-    document.addEventListener("DOMContentLoaded", init);
+// Save selections
+function saveSelections() {
+    localStorage.setItem("pinSelections", JSON.stringify(savedSelections));
+}
 
-    async function init() {
-      globalStatus.textContent = "Loading board list...";
+// Create each board
+boardList.forEach(boardName => {
+    const container = document.createElement("div");
+    container.className = "board-container";
 
-      const boardFiles = await fetchBoardList();
-      if (!boardFiles || boardFiles.length === 0) {
-        globalStatus.textContent = "No boards found in /boards/";
-        return;
-      }
+    const title = document.createElement("div");
+    title.className = "board-title";
+    title.textContent = boardName;
+    container.appendChild(title);
 
-      boardFiles.forEach(base => boards.push(createBoard(base)));
+    const wrapper = document.createElement("div");
+    wrapper.className = "board-wrapper";
 
-      setupLazyLoading();
-      globalStatus.textContent = `Ready: ${boards.length} boards`;
-      downloadAllBtn.disabled = false;
-    }
+    const img = document.createElement("img");
+    img.className = "board-img";
+    img.loading = "lazy";
+    img.src = `boards/${boardName}.jpeg`;
 
-    async function fetchBoardList() {
-      try {
-        const res = await fetch("/.netlify/functions/list-boards");
-        return await res.json();
-      } catch (err) {
-        console.error("Error listing boards:", err);
-        return [];
-      }
-    }
+    wrapper.appendChild(img);
+    container.appendChild(wrapper);
+    document.body.appendChild(container);
 
-    function createBoard(baseName) {
-      const div = document.createElement("div");
-      div.className = "board";
+    // Load JSON overlay
+    fetch(`boards/${boardName}.json`)
+        .then(r => r.json())
+        .then(data => {
+            const pins = data.annotations || [];
 
-      const header = document.createElement("div");
-      header.className = "board-header";
+            pins.forEach((pin, index) => {
+                const div = document.createElement("div");
+                div.className = "pin";
 
-      const title = document.createElement("span");
-      title.textContent = baseName;
+                // Position pin
+                div.style.left = (pin.x) + "px";
+                div.style.top = (pin.y) + "px";
+                div.style.width = pin.width + "px";
+                div.style.height = pin.height + "px";
 
-      const downloadBtn = document.createElement("button");
-      downloadBtn.textContent = "Download";
-      downloadBtn.disabled = true;
+                // Restore saved selection
+                if (savedSelections[boardName]?.includes(index)) {
+                    div.classList.add("selected");
+                }
 
-      header.append(title, downloadBtn);
+                // Tap to toggle
+                div.addEventListener("click", () => {
+                    div.classList.toggle("selected");
 
-      const canvas = document.createElement("canvas");
+                    if (!savedSelections[boardName]) {
+                        savedSelections[boardName] = [];
+                    }
 
-      const footer = document.createElement("div");
-      footer.className = "board-footer";
+                    if (div.classList.contains("selected")) {
+                        savedSelections[boardName].push(index);
+                    } else {
+                        savedSelections[boardName] =
+                            savedSelections[boardName].filter(i => i !== index);
+                    }
 
-      const status = document.createElement("span");
-      status.className = "status";
-      status.textContent = "Waiting to load...";
+                    saveSelections();
+                });
 
-      const count = document.createElement("span");
-
-      footer.append(status, count);
-
-      div.append(header, canvas, footer);
-      boardsContainer.appendChild(div);
-
-      const board = {
-        baseName,
-        element: div,
-        canvas,
-        statusEl: status,
-        countEl: count,
-        downloadBtn,
-        loaded: false,
-        boxes: null,
-        img: null
-      };
-
-      downloadBtn.onclick = () => {
-        if (!board.loaded) return alert("Scroll the board into view first.");
-        const url = board.canvas.toDataURL("image/png");
-        triggerDownload(url, `${baseName}_circled.png`);
-      };
-
-      return board;
-    }
-
-    function setupLazyLoading() {
-      observer = new IntersectionObserver(entries => {
-        entries.forEach(entry => {
-          const board = boards.find(b => b.element === entry.target);
-          if (entry.isIntersecting) {
-            if (!board.loaded) loadBoard(board);
-          } else {
-            unloadBoard(board);
-          }
+                wrapper.appendChild(div);
+            });
         });
-      }, { rootMargin: "200px 0px", threshold: 0.01 });
+});
+</script>
 
-      boards.forEach(b => observer.observe(b.element));
-    }
-
-    async function loadBoard(board) {
-      const { baseName, canvas, statusEl, countEl, downloadBtn } = board;
-      board.loaded = true;
-      statusEl.textContent = "Loading...";
-
-      try {
-        let img;
-        try {
-          img = await loadImage(`/boards/${baseName}.jpg`);
-        } catch {
-          img = await loadImage(`/boards/${baseName}.jpeg`);
-        }
-
-        board.img = img;
-
-        const json = await fetch(`/boards/${baseName}.json`).then(r => r.json());
-        const boxes = normalizeBoxes(json.predictions || json.boxes || json.output?.predictions || json || []);
-        board.boxes = boxes;
-
-        const ctx = canvas.getContext("2d");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-
-        ctx.drawImage(img, 0, 0);
-
-        statusEl.textContent = boxes.length ? `${boxes.length} pins` : "No boxes found";
-
-        const key = `finsandpins-${baseName}`;
-        let selected = JSON.parse(localStorage.getItem(key) || "[]");
-
-        redraw(ctx, img, boxes, selected);
-        countEl.textContent = selected.length ? `${selected.length} selected` : "";
-
-        canvas.onclick = evt => {
-          const rect = canvas.getBoundingClientRect();
-          const scaleX = canvas.width / rect.width;
-          const scaleY = canvas.height / rect.height;
-
-          const x = (evt.clientX - rect.left) * scaleX;
-          const y = (evt.clientY - rect.top) * scaleY;
-
-          const hit = boxes.findIndex(b => x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height);
-          if (hit === -1) return;
-
-          const idx = selected.indexOf(hit);
-          if (idx === -1) selected.push(hit);
-          else selected.splice(idx, 1);
-
-          localStorage.setItem(key, JSON.stringify(selected));
-
-          redraw(ctx, img, boxes, selected);
-          countEl.textContent = selected.length ? `${selected.length} selected` : "";
-        };
-
-        downloadBtn.disabled = false;
-
-      } catch (err) {
-        console.error("Error loading board", baseName, err);
-        statusEl.textContent = "Error loading board";
-      }
-    }
-
-    function unloadBoard(board) {
-      if (!board.loaded) return;
-      board.loaded = false;
-      board.img = null;
-      board.boxes = null;
-
-      const ctx = board.canvas.getContext("2d");
-      ctx.clearRect(0, 0, board.canvas.width, board.canvas.height);
-
-      board.statusEl.textContent = "Unloaded";
-      board.countEl.textContent = "";
-      board.downloadBtn.disabled = true;
-    }
-
-    function normalizeBoxes(arr) {
-      return arr.map(b => ({
-        x: b.x - b.width / 2,
-        y: b.y - b.height / 2,
-        width: b.width,
-        height: b.height
-      }));
-    }
-
-    function redraw(ctx, img, boxes, selected) {
-      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-      ctx.drawImage(img, 0, 0);
-
-      ctx.lineWidth = BOX_LINE_WIDTH;
-      ctx.strokeStyle = BOX_STROKE_COLOR;
-      ctx.fillStyle = BOX_FILL_COLOR;
-
-      selected.forEach(i => {
-        const b = boxes[i];
-        ctx.beginPath();
-        ctx.rect(b.x, b.y, b.width, b.height);
-        ctx.fill();
-        ctx.stroke();
-      });
-    }
-
-    function loadImage(url) {
-      return new Promise((res, rej) => {
-        const img = new Image();
-        img.onload = () => res(img);
-        img.onerror = rej;
-        img.src = url;
-      });
-    }
-
-    function triggerDownload(url, filename) {
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-    }
-  </script>
 </body>
 </html>
