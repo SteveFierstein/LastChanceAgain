@@ -1,0 +1,9 @@
+[[headers]]
+  for = "/boards/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+
+[[redirects]]
+  from = "/boards"
+  to = "/boards/"
+  status = 301
