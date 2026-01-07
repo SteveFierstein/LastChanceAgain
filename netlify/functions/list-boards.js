@@ -3,10 +3,11 @@ const path = require("path");
 
 exports.handler = async () => {
   try {
-    const boardsDir = path.join(__dirname, "../../boards");
+    // Correct path: site root + /boards
+    const boardsDir = path.join(process.cwd(), "boards");
+
     const files = fs.readdirSync(boardsDir);
 
-    // Extract base names for .jpg/.jpeg files
     const bases = new Set();
 
     files.forEach(file => {
