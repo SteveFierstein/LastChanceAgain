@@ -64,7 +64,7 @@
 <h1>All Boards</h1>
 
 <script>
-// List of all boards (base names only)
+// List of all boards
 const boardList = [
   "IMG_0278",
   "IMG_0279",
@@ -78,6 +78,10 @@ const boardList = [
   "IMG_0287",
   "IMG_0288"
 ];
+
+// Original resolution of all boards
+const ORIGINAL_WIDTH = 4284;
+const ORIGINAL_HEIGHT = 5712;
 
 // Load saved selections
 let savedSelections = JSON.parse(localStorage.getItem("pinSelections") || "{}");
@@ -115,41 +119,46 @@ boardList.forEach(boardName => {
         .then(data => {
             const pins = data.annotations || [];
 
-            pins.forEach((pin, index) => {
-                const div = document.createElement("div");
-                div.className = "pin";
+            img.onload = () => {
+                const displayedWidth = img.clientWidth;
+                const scale = displayedWidth / ORIGINAL_WIDTH;
 
-                // Position pin
-                div.style.left = (pin.x) + "px";
-                div.style.top = (pin.y) + "px";
-                div.style.width = pin.width + "px";
-                div.style.height = pin.height + "px";
+                pins.forEach((pin, index) => {
+                    const div = document.createElement("div");
+                    div.className = "pin";
 
-                // Restore saved selection
-                if (savedSelections[boardName]?.includes(index)) {
-                    div.classList.add("selected");
-                }
+                    // Scale coordinates
+                    div.style.left = (pin.x * scale) + "px";
+                    div.style.top = (pin.y * scale) + "px";
+                    div.style.width = (pin.width * scale) + "px";
+                    div.style.height = (pin.height * scale) + "px";
 
-                // Tap to toggle
-                div.addEventListener("click", () => {
-                    div.classList.toggle("selected");
-
-                    if (!savedSelections[boardName]) {
-                        savedSelections[boardName] = [];
+                    // Restore saved selection
+                    if (savedSelections[boardName]?.includes(index)) {
+                        div.classList.add("selected");
                     }
 
-                    if (div.classList.contains("selected")) {
-                        savedSelections[boardName].push(index);
-                    } else {
-                        savedSelections[boardName] =
-                            savedSelections[boardName].filter(i => i !== index);
-                    }
+                    // Tap to toggle
+                    div.addEventListener("click", () => {
+                        div.classList.toggle("selected");
 
-                    saveSelections();
+                        if (!savedSelections[boardName]) {
+                            savedSelections[boardName] = [];
+                        }
+
+                        if (div.classList.contains("selected")) {
+                            savedSelections[boardName].push(index);
+                        } else {
+                            savedSelections[boardName] =
+                                savedSelections[boardName].filter(i => i !== index);
+                        }
+
+                        saveSelections();
+                    });
+
+                    wrapper.appendChild(div);
                 });
-
-                wrapper.appendChild(div);
-            });
+            };
         });
 });
 </script>
